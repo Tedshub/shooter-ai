@@ -1,4 +1,4 @@
-# 🎯 AI Shooter
+# 🎯 AI Shooter Robot
 
 **Sistem Penargetan Otomatis Berbasis AI Computer Vision**
 
@@ -6,6 +6,12 @@
 ![Arduino](https://img.shields.io/badge/Arduino-IDE-green.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.5+-red.svg)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES6-yellow.svg)
+
+## 🖼️ Deployment Preview
+
+<p align="center">
+  <img src="img/doc1.png" width="1080">
+</p>
 
 ## 📋 Deskripsi Proyek
 
