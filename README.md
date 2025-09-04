@@ -1,4 +1,4 @@
-# 🎯 SHOT-AUTOMATION
+# 🎯 AI Shooter
 
 **Sistem Penargetan Otomatis Berbasis AI Computer Vision**
 
