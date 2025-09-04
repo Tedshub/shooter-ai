@@ -1,52 +1,58 @@
-# 🎯 SHOT-AUTOMATION
+# 🎯 AI Shooter Robot
 
-**Sistem Penargetan Otomatis Berbasis AI Computer Vision**
+**AI Computer Vision Based Automatic Targeting System**
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Arduino](https://img.shields.io/badge/Arduino-IDE-green.svg)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.5+-red.svg)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES6-yellow.svg)
 
-## 📋 Deskripsi Proyek
+## 🖼️ Deployment Preview
 
-SHOT-AUTOMATION adalah sistem penargetan otomatis yang menggunakan teknologi AI Computer Vision untuk deteksi objek dan penargetan presisi. Sistem ini dilengkapi dengan mode manual dan kontrol suara untuk fleksibilitas penggunaan maksimal.
+<p align="center">
+  <img src="img/doc1.png" width="1080">
+</p>
 
-### ✨ Fitur Utama
+## 📋 Project Description
 
-- 🤖 **Penargetan Otomatis** - AI detection menggunakan model computer vision
-- 🎮 **Mode Manual** - Kontrol manual untuk presisi maksimal  
-- 🎙️ **Voice Control** - Kontrol dengan perintah suara melalui API
-- 🎯 **Multi-Target Detection** - Deteksi multiple objek (face, hand, red_ball)
-- 📊 **Real-time Processing** - Pemrosesan video secara real-time
-- 🌐 **Web Interface** - Interface web yang user-friendly
+SHOT-AUTOMATION is an automatic targeting system that uses AI Computer Vision technology for object detection and precision targeting. The system is equipped with manual mode and voice control for maximum usage flexibility.
 
-## 🏗️ Struktur Proyek
+### ✨ Key Features
+
+- 🤖 **Automatic Targeting** - AI detection using computer vision models
+- 🎮 **Manual Mode** - Manual control for maximum precision  
+- 🎙️ **Voice Control** - Voice command control via API
+- 🎯 **Multi-Target Detection** - Multiple object detection (face, hand, red_ball)
+- 📊 **Real-time Processing** - Real-time video processing
+- 🌐 **Web Interface** - User-friendly web interface
+
+## 🏗️ Project Structure
 
 ```
 SHOT-AUTOMATION/
-├── model/                 # Model AI untuk deteksi objek
-│   ├── face.pt           # Model deteksi wajah
-│   ├── hand.pt           # Model deteksi tangan
-│   └── red_ball.pt       # Model deteksi bola merah
-├── shot-automation/       # Core aplikasi
-│   └── shot-automation.ino # Firmware Arduino
-├── static/               # File statis web
-│   ├── css/             # Stylesheet
+├── model/                 # AI models for object detection
+│   ├── face.pt           # Face detection model
+│   ├── hand.pt           # Hand detection model
+│   └── red_ball.pt       # Red ball detection model
+├── shot-automation/       # Core application
+│   └── shot-automation.ino # Arduino firmware
+├── static/               # Web static files
+│   ├── css/             # Stylesheets
 │   ├── js/              # JavaScript files
 │   └── sound/           # Audio files
-├── templates/            # Template HTML
-│   └── index.html       # Interface utama
-├── app.py               # Aplikasi Flask utama
-├── port_scan.py         # Utilitas scan port
-├── requirements.txt     # Dependencies Python
-└── README.md           # Dokumentasi proyek
+├── templates/            # HTML templates
+│   └── index.html       # Main interface
+├── app.py               # Main Flask application
+├── port_scan.py         # Port scanning utility
+├── requirements.txt     # Python dependencies
+└── README.md           # Project documentation
 ```
 
-## 🛠️ Teknologi yang Digunakan
+## 🛠️ Technologies Used
 
 ### Development Tools
-- **Google Colab** - Training model AI
-- **Arduino IDE** - Programming mikrokontroler
+- **Google Colab** - AI model training
+- **Arduino IDE** - Microcontroller programming
 - **VS Code** - Development environment
 
 ### Tech Stack
@@ -56,15 +62,15 @@ SHOT-AUTOMATION/
 - **Hardware**: Arduino, Servo Motors
 - **Audio**: Web Speech API
 
-## 🚀 Instalasi dan Setup
+## 🚀 Installation and Setup
 
 ### Prerequisites
 ```bash
-# Pastikan Python 3.8+ terinstall
+# Ensure Python 3.8+ is installed
 python --version
 
 # Install Arduino IDE
-# Download dari: https://www.arduino.cc/en/software
+# Download from: https://www.arduino.cc/en/software
 ```
 
 ### 1. Clone Repository
@@ -75,10 +81,10 @@ cd shot-automation
 
 ### 2. Setup Python Environment
 ```bash
-# Buat virtual environment
+# Create virtual environment
 python -m venv venv
 
-# Aktifkan virtual environment
+# Activate virtual environment
 # Windows:
 venv\Scripts\activate
 # Linux/Mac:
@@ -89,42 +95,42 @@ pip install -r requirements.txt
 ```
 
 ### 3. Setup Arduino
-1. Buka Arduino IDE
+1. Open Arduino IDE
 2. Load file `shot-automation/shot-automation.ino`
-3. Pilih board dan port yang sesuai
-4. Upload ke Arduino
+3. Select appropriate board and port
+4. Upload to Arduino
 
-### 4. Jalankan Aplikasi
+### 4. Run Application
 ```bash
 python app.py
 ```
 
-Akses aplikasi di: `http://localhost:5000`
+Access application at: `http://localhost:5000`
 
-## 🎮 Cara Penggunaan
+## 🎮 Usage Guide
 
-### Mode Otomatis
-1. Pilih target detection (face/hand/red_ball)
-2. Klik "Start Auto Mode"
-3. Sistem akan otomatis mendeteksi dan mengarahkan
+### Automatic Mode
+1. Select target detection (face/hand/red_ball)
+2. Click "Start Auto Mode"
+3. System will automatically detect and aim
 
-### Mode Manual
-1. Gunakan kontrol directional pada web interface
-2. Kontrol servo secara manual dengan presisi tinggi
+### Manual Mode
+1. Use directional controls on web interface
+2. Control servos manually with high precision
 
 ### Voice Control
-1. Klik tombol microphone
-2. Berikan perintah suara:
+1. Click microphone button
+2. Give voice commands:
    - "Start auto mode"
    - "Switch to manual"
    - "Move left/right/up/down"
    - "Fire"
    - "Stop"
 
-## 🔧 Konfigurasi
+## 🔧 Configuration
 
 ### Model Configuration
-Edit konfigurasi model di `app.py`:
+Edit model configuration in `app.py`:
 ```python
 MODELS = {
     'face': 'model/face.pt',
@@ -134,7 +140,7 @@ MODELS = {
 ```
 
 ### Arduino Configuration
-Sesuaikan pin configuration di `shot-automation.ino`:
+Adjust pin configuration in `shot-automation.ino`:
 ```cpp
 #define SERVO_X_PIN 9
 #define SERVO_Y_PIN 10
@@ -146,68 +152,68 @@ Sesuaikan pin configuration di `shot-automation.ino`:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/` | Main interface |
-| POST | `/start_auto` | Mulai mode otomatis |
-| POST | `/manual_control` | Kontrol manual |
-| POST | `/voice_command` | Proses perintah suara |
-| GET | `/video_feed` | Stream video real-time |
+| POST | `/start_auto` | Start automatic mode |
+| POST | `/manual_control` | Manual control |
+| POST | `/voice_command` | Process voice commands |
+| GET | `/video_feed` | Real-time video stream |
 
 ## 🎯 Model Training
 
-Untuk melatih model baru menggunakan Google Colab:
+To train new models using Google Colab:
 
-1. Upload dataset ke Google Drive
-2. Buka Colab notebook untuk training
-3. Jalankan training script
-4. Download model `.pt` hasil training
-5. Pindahkan ke folder `model/`
+1. Upload dataset to Google Drive
+2. Open Colab notebook for training
+3. Run training script
+4. Download trained `.pt` model
+5. Move to `model/` folder
 
 ## ⚙️ Hardware Requirements
 
 ### Minimum Requirements
 - Arduino Uno/Nano
-- 2x Servo Motors (SG90 atau setara)
+- 2x Servo Motors (SG90 or equivalent)
 - USB Camera/Webcam
-- Breadboard dan jumper wires
+- Breadboard and jumper wires
 
 ### Recommended Setup
-- Arduino Mega (untuk performa lebih baik)
+- Arduino Mega (for better performance)
 - High-torque servo motors
-- HD Camera dengan auto-focus
-- Power supply eksternal untuk servo
+- HD Camera with auto-focus
+- External power supply for servos
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-**Camera tidak terdeteksi:**
+**Camera not detected:**
 ```bash
 # Check available cameras
 python -c "import cv2; print(cv2.VideoCapture(0).isOpened())"
 ```
 
-**Port Arduino tidak ditemukan:**
+**Arduino port not found:**
 ```bash
-# Jalankan port scanner
+# Run port scanner
 python port_scan.py
 ```
 
 **Model loading error:**
-- Pastikan file model `.pt` ada di folder `model/`
-- Check compatibility PyTorch version
+- Ensure model `.pt` files exist in `model/` folder
+- Check PyTorch version compatibility
 
-## 🤝 Kontribusi
+## 🤝 Contributing
 
-1. Fork repository
-2. Buat feature branch (`git checkout -b feature/AmazingFeature`)
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
 
-## 📄 Lisensi
+## 📄 License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-## 📞 Kontak
+## 📞 Contact
 
 **Developer**: Tedy Firmansyah
 - Email: tedysyhh07@gmail.com
