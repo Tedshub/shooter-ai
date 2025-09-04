@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rifle Controller</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/voice-control.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span class="lightning">⚡</span>
+            Futuristic Rifle Controller
+            <span class="lightning">⚡</span>
+        </h1>
+    </div>
+    
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="connection-indicator connected" id="connectionIndicator"></span>
+            Status: <span id="connectionStatus" class="status-error">Error</span>
+        </div>
+        <div class="status-item">Mode: <span id="currentMode">Auto</span></div>
+        <div class="status-item">Detection: <span id="detectionStatus">ON</span></div>
+        <div class="status-item">Model: <span id="currentModelStatus">None</span></div>
+        <div class="status-item">
+            Servo Positions S1:<span id="servo1Pos">90</span>° S2:<span id="servo2Pos">90</span>° S3:<span id="servo3Pos">0</span>°
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <!-- Camera Feed (Center) -->
+        <div class="camera-section">
+            <div class="video-container">
+                <img id="videoFeed" src="{{ url_for('video_feed') }}" alt="Camera Feed">
+                <div class="video-crosshairs"></div>
+                <div class="axis-labels axis-label-x">X</div>
+                <div class="axis-labels axis-label-y">Y</div>
+                <div class="center-dot"></div>
+                <div class="camera-model-controls">
+                    <div class="control-group">
+                        <label for="cameraSelect">Camera</label>
+                        <select id="cameraSelect">
+                            {% for camera in available_cameras %}
+                            <option value="{{ camera }}" {% if camera == current_camera %}selected{% endif %}>Camera {{ camera }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="modelSelect">Model</label>
+                        <select id="modelSelect">
+                            {% for model in available_models %}
+                            <option value="{{ model }}" {% if model == current_model %}selected{% endif %}>{{ model }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Manual Control (Left) -->
+        <div class="manual-control-section disabled-overlay" id="manualControls">
+            <div class="section-title">MANUAL CONTROL</div>
+            <div class="joystick-container" id="joystickContainer">
+                <div class="crosshair"></div>
+                <div class="joystick" id="joystick"></div>
+            </div>
+            <div class="joystick-info">
+                Servo1 (Y): <span id="joystickServo1">90</span>° | Servo2 (X): <span id="joystickServo2">90</span>°
+            </div>
+        </div>
+        
+        <!-- Fire Control (Right) -->
+        <div class="fire-control-section">
+            <div class="section-title">FIRE CONTROL</div>
+            <div class="trigger-button" id="triggerButton">
+                FIRE
+            </div>
+            <div class="trigger-status">
+                Status: <span id="triggerStatus" class="status-item">SAFE</span>
+            </div>
+        </div>
+        
+        <!-- System Status (Bottom Left) -->
+        <div class="system-status-section">
+            <div class="section-title">SYSTEM STATUS</div>
+            <div class="servo-grid">
+                <div class="servo-box">
+                    <div class="servo-label">SERVO 1</div>
+                    <div class="servo-value" id="s1Pos">90°</div>
+                </div>
+                <div class="servo-box">
+                    <div class="servo-label">SERVO 2</div>
+                    <div class="servo-value" id="s2Pos">90°</div>
+                </div>
+                <div class="servo-box">
+                    <div class="servo-label">SERVO 3</div>
+                    <div class="servo-value" id="s3Pos">0°</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Control Mode (Bottom Center) with Voice Control -->
+        <div class="control-mode-section">
+            <div class="section-title">CONTROL MODE</div>
+            <div class="mode-switch">
+                <button class="mode-btn" id="manualModeBtn">MANUAL</button>
+                <button class="mode-btn active" id="autoModeBtn">AUTO</button>
+            </div>
+            <div class="voice-control-container">
+                <button class="voice-btn" id="voiceBtn">
+                    VOICE
+                </button>
+                <div class="voice-status" id="voiceStatus">Ready for M177 command</div>
+            </div>
+        </div>
+        
+        <!-- Auto Control (Bottom Right) -->
+        <div class="auto-control-section disabled-overlay" id="autoControls">
+            <div class="section-title">AUTO CONTROL</div>
+            <div class="auto-buttons">
+                <button class="btn" id="toggleDetectionBtn">STOP DETECTION</button>
+                <button class="btn" id="resetServosBtn">RESET POSITION</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            Project developed by <a href="https://github.com/Tedshub" target="_blank">Tedy Firmansyah</a> | 
+            Rifle Controller with Computer Vision Interface | 
+            &copy; <span id="currentYear">2024</span> All Rights Reserved
+        </div>
+    </div>
+
+    <!-- Audio Indicator -->
+    <div id="audioIndicator" class="audio-indicator">Playing audio...</div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/voice-control.js') }}"></script>
+</body>
+</html>
+
+<!-- okee -->
