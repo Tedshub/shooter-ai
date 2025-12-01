@@ -1,15 +1,15 @@
-# app.py
-
 from flask import Flask, render_template, Response, jsonify, request
 import cv2
 import serial
+import serial.tools.list_ports
 import time
 import threading
 from ultralytics import YOLO
 import queue
-import math
 import os
 import glob
+import sys
+import signal
 
 app = Flask(__name__)
 
@@ -27,6 +27,10 @@ model = None
 current_model = None
 available_models = []
 model_folder = 'model'
+
+# Serial port management
+current_serial_port = "COM8"
+available_serial_ports = []
 
 # Servo positions
 servo_positions = {
@@ -53,7 +57,6 @@ no_detection_timeout = 5.0  # 5 seconds timeout
 detection_reset_performed = False
 
 # Serial Configuration
-SERIAL_PORT = "COM5"
 SERIAL_BAUDRATE = 115200
 
 # Command queue for serial communication
@@ -66,22 +69,40 @@ MIN_SERVO_UPDATE_INTERVAL = 0.55  # 100ms between servo updates
 MIN_DETECTION_INTERVAL = 0.2     # 200ms between detections
 last_detection_run_time = 0
 
+# Flag untuk mengontrol apakah aplikasi harus berhenti
+should_quit = False
+
+def get_available_serial_ports():
+    """Get all available serial ports"""
+    global available_serial_ports
+    
+    try:
+        # Get all available serial ports
+        ports = serial.tools.list_ports.comports()
+        available_serial_ports = [port.device for port in sorted(ports, key=lambda x: x.device)]
+        print(f"Available serial ports: {available_serial_ports}")
+        return available_serial_ports
+    except Exception as e:
+        print(f"Error scanning serial ports: {e}")
+        available_serial_ports = []
+        return []
+
 def get_available_models():
-    """Get all available .pt model files from the model folder"""
+    """Get all available .pt model files from model folder"""
     global available_models, model_folder
     
     if not os.path.exists(model_folder):
-        print(f"❌ Model folder '{model_folder}' not found")
+        print(f"Model folder '{model_folder}' not found")
         return []
     
-    # Find all .pt files in the model folder
+    # Find all .pt files in model folder
     model_pattern = os.path.join(model_folder, '*.pt')
     model_files = glob.glob(model_pattern)
     
     # Extract just the filenames without the path
     available_models = [os.path.basename(f) for f in sorted(model_files)]
     
-    print(f"📁 Found models: {available_models}")
+    print(f"Found models: {available_models}")
     return available_models
 
 def load_model(model_name):
@@ -92,7 +113,7 @@ def load_model(model_name):
         model_path = os.path.join(model_folder, model_name)
         
         if not os.path.exists(model_path):
-            print(f"❌ Model file not found: {model_path}")
+            print(f"Model file not found: {model_path}")
             return False
         
         # Load the new model
@@ -102,11 +123,11 @@ def load_model(model_name):
         model = new_model
         current_model = model_name
         
-        print(f"✅ Model '{model_name}' loaded successfully")
+        print(f"Model '{model_name}' loaded successfully")
         return True
         
     except Exception as e:
-        print(f"❌ Error loading model '{model_name}': {e}")
+        print(f"Error loading model '{model_name}': {e}")
         return False
 
 def init_default_model():
@@ -119,12 +140,12 @@ def init_default_model():
         # Load the first model alphabetically
         first_model = available_models[0]
         if load_model(first_model):
-            print(f"✅ Default model '{first_model}' initialized")
+            print(f"Default model '{first_model}' initialized")
             return True
         else:
-            print(f"❌ Failed to load default model '{first_model}'")
+            print(f"Failed to load default model '{first_model}'")
     else:
-        print("❌ No models found in the model folder")
+        print("No models found in the model folder")
     
     return False
 
@@ -204,7 +225,7 @@ class ObjectTracker:
                     predicted_x = self.position_history[-1][0] + dx
                     predicted_y = self.position_history[-1][1] + dy
                     
-                    print(f"🔮 Predicted position: ({predicted_x:.0f}, {predicted_y:.0f})")
+                    print(f"Predicted position: ({predicted_x:.0f}, {predicted_y:.0f})")
                     return (predicted_x, predicted_y)
             
             return None
@@ -229,7 +250,7 @@ def reset_controllers():
     pid_x.reset()
     pid_y.reset()
     object_tracker.reset()
-    print("🔄 Controllers reset")
+    print("Controllers reset")
 
 def reset_detection_timeout():
     """Reset detection timeout and flag"""
@@ -237,9 +258,18 @@ def reset_detection_timeout():
     last_detection_time = time.time()
     detection_reset_performed = False
 
+def signal_handler(sig, frame):
+    """Handle system signals for graceful shutdown"""
+    global should_quit
+    print(f"\nReceived signal {sig}, shutting down...")
+    should_quit = True
+    cleanup()
+    sys.exit(0)
+
 def init_serial():
     """Initialize serial connection to ESP32"""
-    global serial_conn
+    global serial_conn, current_serial_port
+    
     try:
         # Close existing connection if any
         if serial_conn and serial_conn.is_open:
@@ -248,7 +278,7 @@ def init_serial():
         
         # Initialize serial connection
         serial_conn = serial.Serial(
-            port=SERIAL_PORT,
+            port=current_serial_port,
             baudrate=SERIAL_BAUDRATE,
             timeout=0.05,  # Very short timeout for responsiveness
             write_timeout=0.5
@@ -262,23 +292,23 @@ def init_serial():
         serial_conn.write(test_command.encode())
         serial_conn.flush()
         
-        print(f"✅ Serial connection established on {SERIAL_PORT}")
+        print(f"Serial connection established on {current_serial_port}")
         return True
         
     except serial.SerialException as e:
-        print(f"❌ Serial error: {e}")
+        print(f"Serial error: {e}")
         serial_conn = None
         return False
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
+        print(f"Unexpected error: {e}")
         serial_conn = None
         return False
 
 def serial_worker():
     """Background worker to handle serial commands"""
-    global serial_conn, command_queue
+    global serial_conn, command_queue, should_quit
     
-    while True:
+    while not should_quit:
         try:
             if not command_queue.empty() and serial_conn and serial_conn.is_open:
                 command = command_queue.get(timeout=0.1)
@@ -291,7 +321,7 @@ def serial_worker():
                 try:
                     response = serial_conn.readline().decode().strip()
                     if response:
-                        print(f"📱 ESP32: {response}")
+                        print(f"ESP32: {response}")
                 except:
                     pass  # Ignore read timeout
                     
@@ -299,7 +329,7 @@ def serial_worker():
                 time.sleep(0.01)  # Small delay when queue is empty
                 
         except Exception as e:
-            print(f"❌ Serial worker error: {e}")
+            print(f"Serial worker error: {e}")
             time.sleep(0.1)
 
 # Start serial worker thread
@@ -311,7 +341,7 @@ def send_servo_command_optimized(servo1=None, servo2=None, servo3=None):
     global servo_positions, command_queue, last_command_time
     
     if not serial_conn or not serial_conn.is_open:
-        print("❌ No serial connection")
+        print("No serial connection")
         return False
     
     # Optimized rate limiting - faster response
@@ -327,10 +357,10 @@ def send_servo_command_optimized(servo1=None, servo2=None, servo3=None):
         if servo1 is not None:
             if auto_mode:
                 # Extended range for auto mode: 25-155 degrees
-                servo1 = max(25, min(155, servo1))
+                servo1 = max(50, min(130, servo1))
             else:
                 # Original range for manual mode
-                servo1 = max(25, min(155, servo1))
+                servo1 = max(50, min(130, servo1))
             servo_positions['servo1'] = servo1
             commands.extend(["S1", str(servo1)])
         
@@ -356,14 +386,14 @@ def send_servo_command_optimized(servo1=None, servo2=None, servo3=None):
             # Enhanced queue management
             try:
                 command_queue.put_nowait(command_string)
-                print(f"📤 Queued: {command_string.strip()}")
+                print(f"Queued: {command_string.strip()}")
                 return True
             except queue.Full:
-                print("⚠️ Command queue full, skipping command")
+                print("Command queue full, skipping command")
                 return False
             
     except Exception as e:
-        print(f"❌ Error preparing command: {e}")
+        print(f"Error preparing command: {e}")
         return False
     
     return False
@@ -389,7 +419,7 @@ def init_camera(camera_index=0):
         
         camera = cv2.VideoCapture(camera_index)
         if not camera.isOpened():
-            print(f"❌ Failed to open camera {camera_index}")
+            print(f"Failed to open camera {camera_index}")
             return False
             
         camera.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
@@ -400,16 +430,16 @@ def init_camera(camera_index=0):
         # Test camera
         ret, frame = camera.read()
         if ret:
-            print(f"✅ Camera {camera_index} initialized")
+            print(f"Camera {camera_index} initialized")
             return True
         else:
-            print(f"❌ Camera {camera_index} cannot read frames")
+            print(f"Camera {camera_index} cannot read frames")
             camera.release()
             camera = None
             return False
             
     except Exception as e:
-        print(f"❌ Camera error: {e}")
+        print(f"Camera error: {e}")
         if camera:
             camera.release()
             camera = None
@@ -479,10 +509,10 @@ def check_detection_timeout():
     time_since_detection = current_time - last_detection_time
     
     if time_since_detection >= no_detection_timeout and not detection_reset_performed:
-        print(f"⏰ No detection for {no_detection_timeout}s - Resetting servos to 90°")
+        print(f"No detection for {no_detection_timeout}s - Resetting servos to 90°")
         send_servo_command_optimized(servo1=90, servo2=90)
         detection_reset_performed = True
-        print("🔄 Servos reset to initial position (90°, 90°)")
+        print("Servos reset to initial position (90°, 90°)")
 
 def process_detection_optimized(frame, results):
     """
@@ -577,7 +607,7 @@ def process_detection_optimized(frame, results):
             if target_servo1 != servo_positions['servo1'] or target_servo2 != servo_positions['servo2']:
                 send_servo_command_optimized(servo1=target_servo1, servo2=target_servo2)
                 last_servo_update_time = current_time
-                print(f"🎯 Servos updated for Object #1 at {current_time:.2f}s")
+                print(f"Servos updated for Object #1 at {current_time:.2f}s")
     
     else:
         # No detections - check timeout
@@ -585,16 +615,16 @@ def process_detection_optimized(frame, results):
 
 def generate_frames():
     """Generate video frames with object detection"""
-    global detection_enabled, auto_mode
+    global detection_enabled, auto_mode, should_quit
     
-    while True:
+    while not should_quit:
         if not camera or not camera.isOpened():
             time.sleep(1)
             continue
             
         success, frame = camera.read()
         if not success:
-            print("❌ Failed to read frame")
+            print("Failed to read frame")
             time.sleep(0.1)
             continue
         
@@ -631,7 +661,7 @@ def generate_frames():
                 process_detection_optimized(frame, results)
                                 
             except Exception as e:
-                print(f"❌ Detection error: {e}")
+                print(f"Detection error: {e}")
         
         # Display servo positions with extended angle ranges
         if auto_mode:
@@ -648,7 +678,7 @@ def generate_frames():
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
         except Exception as e:
-            print(f"❌ Frame encoding error: {e}")
+            print(f"Frame encoding error: {e}")
             continue
 
 @app.route('/')
@@ -658,7 +688,9 @@ def index():
                          available_cameras=available_cameras,
                          current_camera=current_camera,
                          available_models=available_models,
-                         current_model=current_model)
+                         current_model=current_model,
+                         available_serial_ports=available_serial_ports,
+                         current_serial_port=current_serial_port)
 
 @app.route('/video_feed')
 def video_feed():
@@ -681,6 +713,47 @@ def change_camera():
         print(f"Error changing camera: {e}")
     return jsonify({'success': False})
 
+@app.route('/change_serial_port', methods=['POST'])
+def change_serial_port():
+    """Change serial port"""
+    global current_serial_port, serial_conn
+    try:
+        data = request.get_json()
+        new_port = data['serial_port']
+        if new_port in available_serial_ports:
+            # Close existing connection
+            if serial_conn and serial_conn.is_open:
+                serial_conn.close()
+                time.sleep(0.5)
+            
+            # Update current port
+            current_serial_port = new_port
+            
+            # Initialize new connection
+            if init_serial():
+                return jsonify({'success': True, 'serial_port': current_serial_port})
+            else:
+                return jsonify({'success': False, 'error': f'Failed to connect to {new_port}'})
+        else:
+            return jsonify({'success': False, 'error': f'Port {new_port} not available'})
+    except Exception as e:
+        print(f"Error changing serial port: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/scan_serial_ports', methods=['POST'])
+def scan_serial_ports():
+    """Scan for available serial ports"""
+    try:
+        ports = get_available_serial_ports()
+        return jsonify({
+            'success': True,
+            'serial_ports': ports,
+            'current_port': current_serial_port
+        })
+    except Exception as e:
+        print(f"Error scanning serial ports: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/change_model', methods=['POST'])
 def change_model():
     """Change YOLO model"""
@@ -699,6 +772,55 @@ def change_model():
         print(f"Error changing model: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+# Tambahkan endpoint untuk upload model
+@app.route('/upload_model', methods=['POST'])
+def upload_model():
+    """Handle model file upload"""
+    global available_models, current_model, model_folder
+    
+    try:
+        if 'modelFile' not in request.files:
+            return jsonify({'success': False, 'error': 'No file part'})
+        
+        file = request.files['modelFile']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'})
+        
+        # Check file extension
+        if not file.filename.endswith('.pt'):
+            return jsonify({'success': False, 'error': 'Only PyTorch (.pt) files are allowed'})
+        
+        # Ensure model folder exists
+        if not os.path.exists(model_folder):
+            os.makedirs(model_folder)
+        
+        # Save file
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(model_folder, filename)
+        file.save(file_path)
+        
+        # Update available models list
+        available_models = get_available_models()
+        
+        # If this is the first model, load it
+        if not current_model and available_models:
+            load_model(filename)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Model uploaded successfully',
+            'filename': filename,
+            'available_models': available_models
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# Tambahkan import untuk secure_filename
+from werkzeug.utils import secure_filename
+
+# Perbaikan untuk mode manual - hapus class disabled pada auto-control-section
 @app.route('/set_mode', methods=['POST'])
 def set_mode():
     """Set control mode (manual/auto)"""
@@ -723,6 +845,7 @@ def set_mode():
             reset_detection_timeout()
             last_servo_update_time = time.time()
         
+        # PERBAIKAN: Kembalikan status manual_mode dan auto_mode tanpa mengubah status disabled
         return jsonify({
             'success': True,
             'manual_mode': manual_mode,
@@ -825,9 +948,11 @@ def status():
         'auto_mode': auto_mode,
         'current_camera': current_camera,
         'current_model': current_model,
+        'current_serial_port': current_serial_port,
         'serial_connected': serial_conn is not None and serial_conn.is_open,
         'available_cameras': available_cameras,
         'available_models': available_models,
+        'available_serial_ports': available_serial_ports,
         'command_queue_size': command_queue.qsize(),
         'tracking_active': object_tracker.is_tracking() if 'object_tracker' in globals() else False,
         'time_since_last_servo_update': time_since_last_update,
@@ -847,20 +972,50 @@ def status():
         }
     })
 
+# PERBAIKAN: Fungsi quit yang benar-benar menghentikan program
+@app.route('/quit', methods=['POST'])
+def quit_application():
+    """Quit application"""
+    global should_quit
+    
+    try:
+        # Set flag untuk menghentikan semua thread
+        should_quit = True
+        
+        # Cleanup resources
+        cleanup()
+        
+        # Give a moment for threads to finish
+        time.sleep(0.5)
+        
+        # Force exit the application
+        os._exit(0)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 def cleanup():
     """Cleanup resources"""
     global camera, serial_conn
     
     if camera:
         camera.release()
-        print("✅ Camera released")
+        print("Camera released")
     
     if serial_conn and serial_conn.is_open:
         serial_conn.close()
-        print("✅ Serial connection closed")
+        print("Serial connection closed")
 
 if __name__ == '__main__':
-    print("🚀 Starting Flask Servo Controller (Optimized Version)...")
+    print("Starting Flask Servo Controller (Optimized Version)...")
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Scan for available serial ports
+    print("Scanning for serial ports...")
+    available_serial_ports = get_available_serial_ports()
     
     # Initialize serial connection
     retry_count = 0
@@ -872,26 +1027,26 @@ if __name__ == '__main__':
         else:
             retry_count += 1
             if retry_count < max_retries:
-                print(f"⚠️ Retrying serial connection... ({retry_count}/{max_retries})")
+                print(f"Retrying serial connection... ({retry_count}/{max_retries})")
                 time.sleep(2)
     
     if not serial_conn:
-        print("⚠️ Continuing without serial connection")
+        print("Continuing without serial connection")
     
     # Initialize models
-    print("🤖 Scanning for YOLO models...")
+    print("Scanning for YOLO models...")
     if not init_default_model():
-        print("⚠️ Continuing without model - detection will be disabled")
+        print("Continuing without model - detection will be disabled")
     
     # Initialize cameras
-    print("📹 Scanning for cameras...")
+    print("Scanning for cameras...")
     available_cameras = get_available_cameras()
-    print(f"📹 Available cameras: {available_cameras}")
+    print(f"Available cameras: {available_cameras}")
     
     if available_cameras:
         if init_camera(available_cameras[0]):
             current_camera = available_cameras[0]
-            print(f"✅ Camera {current_camera} ready")
+            print(f"Camera {current_camera} ready")
     
     # Setup cleanup
     import atexit
@@ -902,14 +1057,13 @@ if __name__ == '__main__':
     reset_detection_timeout()
     
     try:
-        print("✅ Flask server starting on http://localhost:5000")
-        print(f"   📁 Available models: {available_models}")
-        print(f"   🔧 Current model: {current_model}")
+        print("Flask server starting on http://localhost:5000")
+        print(f"Available models: {available_models}")
+        print(f"Current model: {current_model}")
+        print(f"Available serial ports: {available_serial_ports}")
+        print(f"Current serial port: {current_serial_port}")
         app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)
     except KeyboardInterrupt:
-        print("\n🛑 Server stopped")
+        print("\nServer stopped")
     finally:
         cleanup()
-
-
-        # okee

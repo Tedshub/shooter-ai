@@ -38,6 +38,71 @@ const joystickServo1 = document.getElementById('joystickServo1');
 const joystickServo2 = document.getElementById('joystickServo2');
 const triggerStatus = document.getElementById('triggerStatus');
 
+// Serial port selection
+const serialPortSelect = document.getElementById('serialPortSelect');
+const scanSerialBtn = document.getElementById('scanSerialBtn');
+
+// Serial port selection
+serialPortSelect.addEventListener('change', function() {
+    const selectedPort = this.value;
+    console.log('Changing serial port to:', selectedPort);
+    
+    fetch('/change_serial_port', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serial_port: selectedPort })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Serial port changed to:', data.serial_port);
+        } else {
+            console.error('Failed to change serial port:', data.error);
+            alert('Failed to change serial port: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error changing serial port:', error);
+        alert('Error changing serial port: ' + error.message);
+    });
+});
+
+// Scan serial ports
+scanSerialBtn.addEventListener('click', function() {
+    console.log('Scanning for serial ports...');
+    
+    fetch('/scan_serial_ports', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Available serial ports:', data.serial_ports);
+            
+            // Clear current options
+            serialPortSelect.innerHTML = '';
+            
+            // Add new options
+            data.serial_ports.forEach(port => {
+                const option = document.createElement('option');
+                option.value = port;
+                option.textContent = port;
+                if (port === data.current_port) {
+                    option.selected = true;
+                }
+                serialPortSelect.appendChild(option);
+            });
+            
+            console.log('Serial port dropdown updated');
+        } else {
+            console.error('Failed to scan serial ports:', data.error);
+            alert('Failed to scan serial ports: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error scanning serial ports:', error);
+        alert('Error scanning serial ports: ' + error.message);
+    });
+});
+
 // Mode switching
 manualModeBtn.addEventListener('click', () => setMode('manual'));
 autoModeBtn.addEventListener('click', () => setMode('auto'));
@@ -66,7 +131,6 @@ function updateModeUI() {
     
     // Update control panels
     manualControls.classList.toggle('disabled', !manualMode);
-    autoControls.classList.toggle('disabled', !autoMode);
     
     // Update status
     currentMode.textContent = manualMode ? 'Manual' : 'Auto';
@@ -651,7 +715,7 @@ class AudioManager {
     }
 
     showAudioIndicator(message) {
-        this.audioIndicator.textContent = `🔊 ${message}`;
+        this.audioIndicator.textContent = `Audio: ${message}`;
         this.audioIndicator.classList.add('show');
     }
 
@@ -870,7 +934,7 @@ class VoiceController {
                 await this.activateCommandMode();
                 return;
             } else {
-                this.updateStatus(`❌ Wake word not detected. Say "Hei"`, 'error');
+                this.updateStatus(`Wake word not detected. Say "Hei"`, 'error');
                 console.log('Wake word not detected in:', transcript);
                 setTimeout(() => {
                     this.updateStatus('Voice ready - Click button to start', '');
@@ -928,7 +992,7 @@ class VoiceController {
     async activateCommandMode() {
         this.isAwaitingCommand = true;
         this.lastValidCommandTime = Date.now();
-        this.updateStatus('✅ Command mode active - Say your commands', 'success');
+        this.updateStatus('Command mode active - Say your commands', 'success');
         console.log('Command mode activated - servo positions maintained');
         
         // Play opening sound
@@ -938,9 +1002,6 @@ class VoiceController {
         } catch (error) {
             console.error('Error playing opening sound:', error);
         }
-        
-        // MODIFIED: No longer reset servos to initial position
-        // this.resetServosToInitial(); // This line removed
         
         this.startCommandTimeout();
     }
@@ -978,7 +1039,7 @@ class VoiceController {
         }
         
         if (this.isListening) {
-            this.updateStatus('🎤 Command timeout - Listening for "Hei"', 'listening');
+            this.updateStatus('Command timeout - Listening for "Hei"', 'listening');
         } else {
             this.updateStatus('Command timeout - Click voice to start', '');
         }
@@ -1066,7 +1127,7 @@ class VoiceController {
         // Play audio feedback and update status (except for fire command)
         if (commandExecuted) {
             if (!transcript.includes('tembak') && !transcript.includes('fire')) {
-                this.updateStatus('✅ Perintah berhasil dijalankan', 'success');
+                this.updateStatus('Perintah berhasil dijalankan', 'success');
                 console.log('Valid command executed, timeout will be extended');
                 
                 // Play corresponding audio
@@ -1086,7 +1147,7 @@ class VoiceController {
                 this.extendCommandTimeout();
             }
         } else {
-            this.updateStatus(`❌ Perintah "${transcript}" tidak dikenali`, 'error');
+            this.updateStatus(`Perintah "${transcript}" tidak dikenali`, 'error');
             console.log('Invalid command, timeout will NOT be extended');
             setTimeout(() => {
                 if (this.isAwaitingCommand && this.isListening) {
@@ -1102,7 +1163,7 @@ class VoiceController {
     startVoiceCooldown() {
         // Set cooldown flag
         isVoiceCooldown = true;
-        this.updateStatus('⏳ Voice cooldown active (3s)', 'processing');
+        this.updateStatus('Voice cooldown active (3s)', 'processing');
         console.log('Voice cooldown started for 3 seconds');
         
         // Clear any existing cooldown timeout
@@ -1116,7 +1177,7 @@ class VoiceController {
             console.log('Voice cooldown ended');
             
             if (this.isAwaitingCommand && this.isListening) {
-                this.updateStatus('✅ Ready for next command', 'success');
+                this.updateStatus('Ready for next command', 'success');
             }
         }, 2000); // 2 second cooldown
     }
@@ -1238,7 +1299,7 @@ class VoiceController {
                     this.startVoiceCooldown();
                     
                     // Update status and extend timeout
-                    this.updateStatus('✅ Voice fire completed', 'success');
+                    this.updateStatus('Voice fire completed', 'success');
                     this.extendCommandTimeout();
                 }, 150); // Small delay to ensure servo has moved and UI updated
                 
@@ -1340,8 +1401,6 @@ class VoiceController {
         }
     }
 
-    // REMOVED: resetServosToInitial function no longer needed
-
     updateStatus(message, type = '') {
         this.voiceStatus.textContent = message;
         this.voiceStatus.className = `voice-status ${type}`;
@@ -1357,6 +1416,185 @@ document.addEventListener('DOMContentLoaded', () => {
         window.voiceController = new VoiceController();
         console.log('Voice Controller initialized');
     }, 1000);
+});
+
+// Tambahkan kode berikut untuk menangani upload model, refresh, dan quit
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal elements
+    const modal = document.getElementById('uploadModal');
+    const uploadBtn = document.getElementById('uploadModelBtn');
+    const closeBtn = document.querySelector('.close');
+    const cancelBtn = document.querySelector('.cancel-btn');
+    const uploadForm = document.getElementById('uploadForm');
+    const modelFileInput = document.getElementById('modelFile');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressFill = document.querySelector('.progress-fill');
+    const progressText = document.querySelector('.progress-text');
+    const uploadMessage = document.getElementById('uploadMessage');
+    const modelSelect = document.getElementById('modelSelect');
+
+    // Refresh button
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        location.reload();
+    });
+    
+    // Quit button
+    document.getElementById('quitBtn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to quit the application?')) {
+            fetch('/quit', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show message before closing
+                    const message = document.createElement('div');
+                    message.className = 'quit-message';
+                    message.textContent = 'Application shutting down...';
+                    document.body.appendChild(message);
+                    
+                    // Close after a short delay
+                    setTimeout(() => {
+                        window.close();
+                        // Fallback if window.close() doesn't work
+                        window.location.href = 'about:blank';
+                    }, 2000);
+                } else {
+                    alert('Failed to quit: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error quitting:', error);
+                alert('Error quitting: ' + error.message);
+            });
+        }
+    });
+
+    // Open modal
+    uploadBtn.addEventListener('click', function() {
+        modal.style.display = 'block';
+        resetUploadForm();
+    });
+
+    // Close modal
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    function closeModal() {
+        modal.style.display = 'none';
+        resetUploadForm();
+    }
+
+    function resetUploadForm() {
+        uploadForm.reset();
+        uploadProgress.style.display = 'none';
+        uploadMessage.style.display = 'none';
+        progressFill.style.width = '0%';
+        progressText.textContent = 'Uploading... 0%';
+    }
+
+    // Handle form submission
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const file = modelFileInput.files[0];
+        if (!file) {
+            showUploadMessage('Please select a model file', 'error');
+            return;
+        }
+
+        // Validate file extension
+        if (!file.name.endsWith('.pt')) {
+            showUploadMessage('Only PyTorch (.pt) files are allowed', 'error');
+            return;
+        }
+
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('modelFile', file);
+
+        // Show progress
+        uploadProgress.style.display = 'block';
+        uploadMessage.style.display = 'none';
+
+        // Create XMLHttpRequest for progress tracking
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                progressFill.style.width = percentComplete + '%';
+                progressText.textContent = `Uploading... ${percentComplete}%`;
+            }
+        });
+
+        // Handle response
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200) {
+                const response = JSON.parse(xhr.responseText);
+                if (response.success) {
+                    showUploadMessage('Model uploaded successfully!', 'success');
+                    
+                    // Refresh model list
+                    setTimeout(() => {
+                        closeModal();
+                        refreshModelList();
+                    }, 1500);
+                } else {
+                    showUploadMessage(response.error || 'Upload failed', 'error');
+                }
+            } else {
+                showUploadMessage('Upload failed with server error', 'error');
+            }
+        });
+
+        // Handle errors
+        xhr.addEventListener('error', function() {
+            showUploadMessage('Upload failed due to network error', 'error');
+        });
+
+        // Send request
+        xhr.open('POST', '/upload_model');
+        xhr.send(formData);
+    });
+
+    function showUploadMessage(message, type) {
+        uploadMessage.textContent = message;
+        uploadMessage.className = 'upload-message ' + type;
+        uploadMessage.style.display = 'block';
+    }
+
+    function refreshModelList() {
+        fetch('/status')
+        .then(response => response.json())
+        .then(data => {
+            // Clear current options
+            modelSelect.innerHTML = '';
+            
+            // Add new options
+            data.available_models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === data.current_model) {
+                    option.selected = true;
+                }
+                modelSelect.appendChild(option);
+            });
+            
+            // Update current model status
+            document.getElementById('currentModelStatus').textContent = data.current_model || 'None';
+        })
+        .catch(error => {
+            console.error('Error refreshing model list:', error);
+        });
+    }
 });
 
 // Test functions for debugging
@@ -1461,5 +1699,3 @@ window.testVoiceFire = function() {
         console.log('Voice controller not ready or not in command mode');
     }
 };
-
-// Okee
