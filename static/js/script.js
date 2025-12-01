@@ -870,7 +870,7 @@ class VoiceController {
                 await this.activateCommandMode();
                 return;
             } else {
-                this.updateStatus(`❌ Wake word not detected. Say "M 177"`, 'error');
+                this.updateStatus(`❌ Wake word not detected. Say "Hei"`, 'error');
                 console.log('Wake word not detected in:', transcript);
                 setTimeout(() => {
                     this.updateStatus('Voice ready - Click button to start', '');
@@ -978,7 +978,7 @@ class VoiceController {
         }
         
         if (this.isListening) {
-            this.updateStatus('🎤 Command timeout - Listening for "M 177"', 'listening');
+            this.updateStatus('🎤 Command timeout - Listening for "Hei"', 'listening');
         } else {
             this.updateStatus('Command timeout - Click voice to start', '');
         }
