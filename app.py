@@ -713,6 +713,37 @@ def change_camera():
         print(f"Error changing camera: {e}")
     return jsonify({'success': False})
 
+@app.route('/scan_cameras', methods=['POST'])
+def scan_cameras():
+    """Scan for available cameras"""
+    global available_cameras
+    try:
+        # Release current camera before scanning
+        if camera:
+            camera.release()
+            time.sleep(0.5)
+        
+        # Scan for cameras
+        available_cameras = get_available_cameras()
+        print(f"Scanned cameras: {available_cameras}")
+        
+        # Reinitialize current camera if it's still available
+        if current_camera in available_cameras:
+            init_camera(current_camera)
+        elif available_cameras:
+            # If current camera is no longer available, use the first available
+            current_camera = available_cameras[0]
+            init_camera(current_camera)
+        
+        return jsonify({
+            'success': True,
+            'cameras': available_cameras,
+            'current_camera': current_camera
+        })
+    except Exception as e:
+        print(f"Error scanning cameras: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/change_serial_port', methods=['POST'])
 def change_serial_port():
     """Change serial port"""

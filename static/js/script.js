@@ -21,6 +21,7 @@ const toggleDetectionBtn = document.getElementById('toggleDetectionBtn');
 const resetServosBtn = document.getElementById('resetServosBtn');
 const cameraSelect = document.getElementById('cameraSelect');
 const modelSelect = document.getElementById('modelSelect');
+const scanCameraBtn = document.getElementById('scanCameraBtn'); // New element for camera refresh
 
 // Status elements
 const connectionIndicator = document.getElementById('connectionIndicator');
@@ -164,6 +165,70 @@ cameraSelect.addEventListener('change', function() {
     })
     .catch(console.error);
 });
+
+// NEW: Camera refresh functionality
+scanCameraBtn.addEventListener('click', function() {
+    console.log('Scanning for cameras...');
+    
+    // Add rotating animation to the button
+    this.classList.add('rotating');
+    
+    fetch('/scan_cameras', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Available cameras:', data.cameras);
+            
+            // Clear current options
+            cameraSelect.innerHTML = '';
+            
+            // Add new options
+            data.cameras.forEach(camera => {
+                const option = document.createElement('option');
+                option.value = camera;
+                option.textContent = `Camera ${camera}`;
+                if (camera === data.current_camera) {
+                    option.selected = true;
+                }
+                cameraSelect.appendChild(option);
+            });
+            
+            // Show notification
+            showCameraNotification('Camera scan completed successfully', 'success');
+        } else {
+            console.error('Failed to scan cameras:', data.error);
+            showCameraNotification('Failed to scan cameras: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error scanning cameras:', error);
+        showCameraNotification('Error scanning cameras: ' + error.message, 'error');
+    })
+    .finally(() => {
+        // Remove rotating animation
+        this.classList.remove('rotating');
+    });
+});
+
+// NEW: Function to show camera notification
+function showCameraNotification(message, type) {
+    // Create notification element if it doesn't exist
+    let notification = document.querySelector('.camera-notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.className = 'camera-notification';
+        document.body.appendChild(notification);
+    }
+    
+    // Set message and type
+    notification.textContent = message;
+    notification.className = `camera-notification ${type} show`;
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
 
 // Model selection
 modelSelect.addEventListener('change', function() {
@@ -1358,7 +1423,7 @@ class VoiceController {
                 console.log(`Option ${i}:`, modelSelect.options[i].value, modelSelect.options[i].text);
             }
             
-            // Check if the model index exists
+            // Check if model index exists
             if (modelIndex >= 0 && modelIndex < modelSelect.options.length) {
                 const previousValue = modelSelect.value;
                 modelSelect.selectedIndex = modelIndex;
@@ -1384,7 +1449,7 @@ class VoiceController {
                 
                 console.log('Model selection events dispatched for index:', modelIndex);
                 
-                // Verify the selection
+                // Verify selection
                 setTimeout(() => {
                     console.log('Final selected index:', modelSelect.selectedIndex);
                     console.log('Final selected value:', modelSelect.value);
