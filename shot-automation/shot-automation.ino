@@ -85,11 +85,11 @@ void loop() {
 void processFlaskCommand(String command) {
   command.trim(); // Remove whitespace and newlines
   
-  Serial.print("📥 Flask command: ");
+  Serial.print("Flask command: ");
   Serial.println(command);
   
   if (command.length() == 0) {
-    Serial.println("❌ Empty command received");
+    Serial.println("Empty command received");
     return;
   }
   
@@ -121,7 +121,7 @@ void processFlaskCommand(String command) {
     
     // Validate angle range
     if (angle < minAngle || angle > maxAngle) {
-      Serial.print("❌ Invalid angle for ");
+      Serial.print("Invalid angle for ");
       Serial.print(servoId);
       Serial.print(": ");
       Serial.print(angle);
@@ -133,7 +133,7 @@ void processFlaskCommand(String command) {
     if (servoId == "S1") {
       currentServo1Pos = angle;
       servo1.write(currentServo1Pos);
-      Serial.print("🎯 Servo 1 (Y-Axis) → ");
+      Serial.print("Servo 1 (Y-Axis) → ");
       Serial.print(currentServo1Pos);
       Serial.println("°");
       commandProcessed = true;
@@ -141,7 +141,7 @@ void processFlaskCommand(String command) {
     } else if (servoId == "S2") {
       currentServo2Pos = angle;
       servo2.write(currentServo2Pos);
-      Serial.print("🎯 Servo 2 (X-Axis) → ");
+      Serial.print("Servo 2 (X-Axis) → ");
       Serial.print(currentServo2Pos);
       Serial.println("°");
       commandProcessed = true;
@@ -149,7 +149,7 @@ void processFlaskCommand(String command) {
     } else if (servoId == "S3") {
       currentServo3Pos = angle;
       servo3.write(currentServo3Pos);
-      Serial.print("🔥 Servo 3 (Trigger) → ");
+      Serial.print("Servo 3 (Trigger) → ");
       Serial.print(currentServo3Pos);
       Serial.println("°");
       commandProcessed = true;
@@ -163,7 +163,7 @@ void processFlaskCommand(String command) {
   
   if (commandProcessed) {
     // Send confirmation back to Flask
-    Serial.print("✅ Positions: S1:");
+    Serial.print("Positions: S1:");
     Serial.print(currentServo1Pos);
     Serial.print("° S2:");
     Serial.print(currentServo2Pos);
@@ -177,7 +177,7 @@ void processFlaskCommand(String command) {
 
 // Function to reset all servos to initial position
 void resetServos() {
-  Serial.println("🔄 Resetting all servos to initial positions...");
+  Serial.println("Resetting all servos to initial positions...");
   
   currentServo1Pos = 90;
   currentServo2Pos = 90;
@@ -189,12 +189,12 @@ void resetServos() {
   delay(15);
   servo3.write(currentServo3Pos);
   
-  Serial.println("✅ Reset complete: S1:90° S2:90° S3:0°");
+  Serial.println("Reset complete: S1:90° S2:90° S3:0°");
 }
 
 // Function to get current positions
 void getCurrentPositions() {
-  Serial.print("📍 Current positions - S1:");
+  Serial.print("Current positions - S1:");
   Serial.print(currentServo1Pos);
   Serial.print("° S2:");
   Serial.print(currentServo2Pos);

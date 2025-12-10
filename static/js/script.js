@@ -8,6 +8,8 @@ let triggerPressed = false;
 let voiceFireTimeout = null; // New variable for voice fire timeout
 let voiceCooldownTimeout = null; // New variable for voice command cooldown
 let isVoiceCooldown = false; // Flag to track if voice system is in cooldown
+let testActuatorRunning = false; // Flag to track if actuator test is running
+let testActuatorTimeout = null; // Timeout for actuator test sequence
 
 // DOM elements
 const joystick = document.getElementById('joystick');
@@ -22,6 +24,7 @@ const resetServosBtn = document.getElementById('resetServosBtn');
 const cameraSelect = document.getElementById('cameraSelect');
 const modelSelect = document.getElementById('modelSelect');
 const scanCameraBtn = document.getElementById('scanCameraBtn'); // New element for camera refresh
+const testActuatorBtn = document.getElementById('testActuatorBtn'); // New element for actuator test
 
 // Status elements
 const connectionIndicator = document.getElementById('connectionIndicator');
@@ -280,6 +283,273 @@ resetServosBtn.addEventListener('click', function() {
     })
     .catch(console.error);
 });
+
+// NEW: Test Actuator functionality
+testActuatorBtn.addEventListener('click', function() {
+    if (testActuatorRunning) {
+        stopActuatorTest();
+    } else {
+        startActuatorTest();
+    }
+});
+
+function startActuatorTest() {
+    testActuatorRunning = true;
+    testActuatorBtn.textContent = 'STOP';
+    testActuatorBtn.classList.add('active');
+    console.log('Starting actuator test sequence');
+    runActuatorTestSequence();
+}
+
+function stopActuatorTest() {
+    testActuatorRunning = false;
+    testActuatorBtn.textContent = 'TEST ACTUATOR';
+    testActuatorBtn.classList.remove('active');
+    
+    if (testActuatorTimeout) {
+        clearTimeout(testActuatorTimeout);
+        testActuatorTimeout = null;
+    }
+    
+    console.log('Stopping actuator test sequence');
+    
+    // Reset servos to center position
+    fetch('/manual_control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            servo1: 90,
+            servo2: 90,
+            servo3: 0
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateServoPositions(data.positions);
+        }
+    })
+    .catch(console.error);
+}
+
+function runActuatorTestSequence() {
+    if (!testActuatorRunning) return;
+    
+    // Step 1: Move servo 1 (Y-axis) from 90° to 65° then to 90°
+    moveServo1Test()
+    .then(() => {
+        if (!testActuatorRunning) return;
+        
+        // Step 2: Move servo 2 (X-axis) from 60° to 120° then to 90°
+        return moveServo2Test();
+    })
+    .then(() => {
+        if (!testActuatorRunning) return;
+        
+        // Step 3: Move servo 3 (trigger) from 0° to 43° then to 0°
+        return moveServo3Test();
+    })
+    .then(() => {
+        if (!testActuatorRunning) return;
+        
+        // Continue loop
+        testActuatorTimeout = setTimeout(() => {
+            runActuatorTestSequence();
+        }, 1000); // 1 second delay between sequences
+    })
+    .catch(error => {
+        console.error('Error in actuator test sequence:', error);
+        stopActuatorTest();
+    });
+}
+
+function moveServo1Test() {
+    return new Promise((resolve) => {
+        console.log('Moving servo 1: 90° -> 65° -> 90°');
+        
+        // Move to 60°
+        fetch('/manual_control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                servo1: 65,
+                servo2: currentServo2,
+                servo3: triggerPressed ? 43 : 0
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateServoPositions(data.positions);
+                currentServo1 = 120;
+                
+                // Wait 1 second, then move to 90°
+                testActuatorTimeout = setTimeout(() => {
+                    if (!testActuatorRunning) {
+                        resolve();
+                        return;
+                    }
+                    
+                    fetch('/manual_control', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            servo1: 90,
+                            servo2: currentServo2,
+                            servo3: triggerPressed ? 43 : 0
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateServoPositions(data.positions);
+                            currentServo1 = 90;
+                        }
+                        resolve();
+                    })
+                    .catch(console.error);
+                }, 1000);
+            } else {
+                resolve();
+            }
+        })
+        .catch(console.error);
+    });
+}
+
+function moveServo2Test() {
+    return new Promise((resolve) => {
+        console.log('Moving servo 2: 60° -> 120° -> 90°');
+        
+        // Move to 60°
+        fetch('/manual_control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                servo1: currentServo1,
+                servo2: 60,
+                servo3: triggerPressed ? 43 : 0
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateServoPositions(data.positions);
+                currentServo2 = 60;
+                
+                // Wait 1 second, then move to 120°
+                testActuatorTimeout = setTimeout(() => {
+                    if (!testActuatorRunning) {
+                        resolve();
+                        return;
+                    }
+                    
+                    fetch('/manual_control', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            servo1: currentServo1,
+                            servo2: 120,
+                            servo3: triggerPressed ? 43 : 0
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateServoPositions(data.positions);
+                            currentServo2 = 120;
+                            
+                            // Wait 1 second, then move to 90°
+                            testActuatorTimeout = setTimeout(() => {
+                                if (!testActuatorRunning) {
+                                    resolve();
+                                    return;
+                                }
+                                
+                                fetch('/manual_control', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        servo1: currentServo1,
+                                        servo2: 90,
+                                        servo3: triggerPressed ? 43 : 0
+                                    })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        updateServoPositions(data.positions);
+                                        currentServo2 = 90;
+                                    }
+                                    resolve();
+                                })
+                                .catch(console.error);
+                            }, 1000);
+                        } else {
+                            resolve();
+                        }
+                    })
+                    .catch(console.error);
+                }, 1000);
+            } else {
+                resolve();
+            }
+        })
+        .catch(console.error);
+    });
+}
+
+function moveServo3Test() {
+    return new Promise((resolve) => {
+        console.log('Moving servo 3: 0° -> 43° -> 0°');
+        
+        // Move to 43°
+        fetch('/manual_control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                servo1: currentServo1,
+                servo2: currentServo2,
+                servo3: 43
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateServoPositions(data.positions);
+                
+                // Wait 1 second, then move to 0°
+                testActuatorTimeout = setTimeout(() => {
+                    if (!testActuatorRunning) {
+                        resolve();
+                        return;
+                    }
+                    
+                    fetch('/manual_control', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            servo1: currentServo1,
+                            servo2: currentServo2,
+                            servo3: 0
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateServoPositions(data.positions);
+                        }
+                        resolve();
+                    })
+                    .catch(console.error);
+                }, 1000);
+            } else {
+                resolve();
+            }
+        })
+        .catch(console.error);
+    });
+}
 
 // Manual joystick control - FIXED VERSION
 joystick.addEventListener('mousedown', startDrag);
@@ -1147,46 +1417,24 @@ class VoiceController {
             console.log('Voice fire command executed');
         }
 
-        
-        // Model selection commands
-        else if (transcript.includes('pilih model satu') || 
-                 transcript.includes('model satu') || 
-                 transcript.includes('satu') ||
-                 transcript.includes('1') ||
-                 transcript.includes('wajah')) {
-            this.selectModel(0);
+        // MODIFIED: Model selection commands
+        else if (transcript.includes('ubah target pertama')) {
+            this.selectFirstModel();
             commandExecuted = true;
             audioFile = 'target diubah.mp3';
-            console.log('Model 1 selected');
-        } 
-        else if (transcript.includes('pilih model dua') || 
-                 transcript.includes('model dua') || 
-                 transcript.includes('dua') ||
-                 transcript.includes('2') ||
-                 transcript.includes('tangan')) {
-            this.selectModel(1);
-            commandExecuted = true;
-            audioFile = 'target diubah.mp3';
-            console.log('Model 2 selected');
-        } 
-        else if (transcript.includes('pilih model tiga') || 
-                 transcript.includes('model tiga') || 
-                 transcript.includes('tiga') ||
-                 transcript.includes('3') ||
-                 transcript.includes('bola merah')) {
-            this.selectModel(2);
-            commandExecuted = true;
-            audioFile = 'target diubah.mp3';
-            console.log('Model 3 selected');
+            console.log('First model selected');
         }
-        else if (transcript.includes('pilih model empat') || 
-                 transcript.includes('model empat') || 
-                 transcript.includes('empat') ||
-                 transcript.includes('4')) {
-            this.selectModel(3);
+        else if (transcript.includes('ubah target selanjutnya')) {
+            this.selectNextModel();
             commandExecuted = true;
             audioFile = 'target diubah.mp3';
-            console.log('Model 4 selected');
+            console.log('Next model selected');
+        }
+        else if (transcript.includes('ubah target sebelumnya')) {
+            this.selectPreviousModel();
+            commandExecuted = true;
+            audioFile = 'target diubah.mp3';
+            console.log('Previous model selected');
         }
 
         // Play audio feedback and update status (except for fire command)
@@ -1216,7 +1464,7 @@ class VoiceController {
             console.log('Invalid command, timeout will NOT be extended');
             setTimeout(() => {
                 if (this.isAwaitingCommand && this.isListening) {
-                    this.updateStatus('Try: "mode auto", "tembak", "satu", etc.', 'success');
+                    this.updateStatus('Try: "mode auto", "tembak", "ubah target", etc.', 'success');
                 }
             }, 2000);
         }
@@ -1412,56 +1660,66 @@ class VoiceController {
         }
     }
 
-    selectModel(modelIndex) {
+    // NEW: Model selection functions for voice commands
+    selectFirstModel() {
         const modelSelect = document.getElementById('modelSelect');
-        console.log('Selecting model index:', modelIndex);
-        console.log('Model select element:', modelSelect);
+        console.log('Selecting first model');
         
-        if (modelSelect) {
-            console.log('Available model options:', modelSelect.options.length);
-            for (let i = 0; i < modelSelect.options.length; i++) {
-                console.log(`Option ${i}:`, modelSelect.options[i].value, modelSelect.options[i].text);
-            }
-            
-            // Check if model index exists
-            if (modelIndex >= 0 && modelIndex < modelSelect.options.length) {
-                const previousValue = modelSelect.value;
-                modelSelect.selectedIndex = modelIndex;
-                const newValue = modelSelect.value;
-                
-                console.log('Model changed from:', previousValue, 'to:', newValue);
-                
-                // Create and dispatch change event
-                const changeEvent = new Event('change', {
-                    bubbles: true,
-                    cancelable: true,
-                });
-                
-                // Also dispatch input event for better compatibility
-                const inputEvent = new Event('input', {
-                    bubbles: true,
-                    cancelable: true,
-                });
-                
-                // Dispatch both events
-                modelSelect.dispatchEvent(changeEvent);
-                modelSelect.dispatchEvent(inputEvent);
-                
-                console.log('Model selection events dispatched for index:', modelIndex);
-                
-                // Verify selection
-                setTimeout(() => {
-                    console.log('Final selected index:', modelSelect.selectedIndex);
-                    console.log('Final selected value:', modelSelect.value);
-                }, 100);
-                
-                return true;
-            } else {
-                console.error('Model index out of range:', modelIndex, 'Available:', modelSelect.options.length);
-                return false;
-            }
+        if (modelSelect && modelSelect.options.length > 0) {
+            modelSelect.selectedIndex = 0;
+            const changeEvent = new Event('change', {
+                bubbles: true,
+                cancelable: true,
+            });
+            modelSelect.dispatchEvent(changeEvent);
+            console.log('First model selected');
+            return true;
         } else {
-            console.error('Model select element not found');
+            console.error('No models available');
+            return false;
+        }
+    }
+
+    selectNextModel() {
+        const modelSelect = document.getElementById('modelSelect');
+        console.log('Selecting next model');
+        
+        if (modelSelect && modelSelect.options.length > 0) {
+            const currentIndex = modelSelect.selectedIndex;
+            const nextIndex = (currentIndex + 1) % modelSelect.options.length;
+            modelSelect.selectedIndex = nextIndex;
+            
+            const changeEvent = new Event('change', {
+                bubbles: true,
+                cancelable: true,
+            });
+            modelSelect.dispatchEvent(changeEvent);
+            console.log(`Next model selected: ${modelSelect.options[nextIndex].text}`);
+            return true;
+        } else {
+            console.error('No models available');
+            return false;
+        }
+    }
+
+    selectPreviousModel() {
+        const modelSelect = document.getElementById('modelSelect');
+        console.log('Selecting previous model');
+        
+        if (modelSelect && modelSelect.options.length > 0) {
+            const currentIndex = modelSelect.selectedIndex;
+            const prevIndex = currentIndex === 0 ? modelSelect.options.length - 1 : currentIndex - 1;
+            modelSelect.selectedIndex = prevIndex;
+            
+            const changeEvent = new Event('change', {
+                bubbles: true,
+                cancelable: true,
+            });
+            modelSelect.dispatchEvent(changeEvent);
+            console.log(`Previous model selected: ${modelSelect.options[prevIndex].text}`);
+            return true;
+        } else {
+            console.error('No models available');
             return false;
         }
     }
@@ -1762,5 +2020,14 @@ window.testVoiceFire = function() {
         window.voiceController.voiceFireCommand();
     } else {
         console.log('Voice controller not ready or not in command mode');
+    }
+};
+
+// Test actuator functions
+window.testActuatorSequence = function() {
+    if (!testActuatorRunning) {
+        startActuatorTest();
+    } else {
+        stopActuatorTest();
     }
 };
