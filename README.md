@@ -11,6 +11,7 @@
 
 <p align="center">
   <img src="img/doc1.png" width="1080">
+  <img src="img/doc2.jpeg" width="1080">
 </p>
 
 ## 📋 Project Description
