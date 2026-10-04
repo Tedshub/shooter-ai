@@ -1,0 +1,1 @@
+cd "C:\IT Journey\Computer Vision\shot-automation"

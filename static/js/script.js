@@ -1793,7 +1793,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Open modal
     uploadBtn.addEventListener('click', function() {
-        modal.style.display = 'block';
+        modal.style.display = 'flex';
         resetUploadForm();
     });
 

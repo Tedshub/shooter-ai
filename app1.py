@@ -10,6 +10,7 @@ import os
 import glob
 import sys
 import signal
+from werkzeug.utils import secure_filename  # Dipindahkan ke atas untuk kebersihan kode
 
 app = Flask(__name__)
 
@@ -585,8 +586,9 @@ def process_detection_optimized(frame, results):
             if i == 0:
                 cv2.line(frame, (center_x, center_y), center, (255, 0, 0), 2)
             
-            # Draw label with number
-            label = f"#{i+1} Conf: {confidence:.2f}"
+            # Draw label with number, coordinates, and confidence
+            # Label format: #{i+1} (x, y) Conf: 0.xx
+            label = f"#{i+1} ({center[0]}, {center[1]}) Conf:{confidence:.2f}"
             label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
             cv2.rectangle(frame, (bbox[0], bbox[1] - label_size[1] - 10), 
                          (bbox[0] + label_size[0], bbox[1]), color, -1)
@@ -631,13 +633,14 @@ def generate_frames():
         height, width = frame.shape[:2]
         center_x, center_y = width // 2, height // 2
         
-        # Draw coordinate system
+        # Draw coordinate system (Crosshair only)
         cv2.line(frame, (center_x - 20, center_y), (center_x + 20, center_y), (0, 255, 0), 2)
         cv2.line(frame, (center_x, center_y - 15), (center_x, center_y + 15), (0, 255, 0), 2)
         
-        # Draw coordinate info
-        cv2.putText(frame, "X: -15 to +15", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(frame, "Y: -10 to +10", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # --- DIHAPUS: Teks koordinat X dan Y global ---
+        # cv2.putText(frame, "X: -15 to +15", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # cv2.putText(frame, "Y: -10 to +10", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # ------------------------------------------------
         
         # Mode indicator
         mode_text = "AUTO MODE" if auto_mode else "MANUAL MODE"
@@ -652,7 +655,7 @@ def generate_frames():
         # Model status
         model_status = f"MODEL: {current_model}" if current_model else "MODEL: NONE"
         model_color = (0, 255, 0) if model else (255, 0, 0)
-        cv2.putText(frame, model_status, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.5, model_color, 2)
+        cv2.putText(frame, model_status, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, model_color, 2)
         
         # Object detection with optimized processing
         if detection_enabled and auto_mode and model:
@@ -803,7 +806,6 @@ def change_model():
         print(f"Error changing model: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Tambahkan endpoint untuk upload model
 @app.route('/upload_model', methods=['POST'])
 def upload_model():
     """Handle model file upload"""
@@ -848,10 +850,6 @@ def upload_model():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-# Tambahkan import untuk secure_filename
-from werkzeug.utils import secure_filename
-
-# Perbaikan untuk mode manual - hapus class disabled pada auto-control-section
 @app.route('/set_mode', methods=['POST'])
 def set_mode():
     """Set control mode (manual/auto)"""
@@ -876,7 +874,6 @@ def set_mode():
             reset_detection_timeout()
             last_servo_update_time = time.time()
         
-        # PERBAIKAN: Kembalikan status manual_mode dan auto_mode tanpa mengubah status disabled
         return jsonify({
             'success': True,
             'manual_mode': manual_mode,
@@ -1003,14 +1000,13 @@ def status():
         }
     })
 
-# PERBAIKAN: Fungsi quit yang benar-benar menghentikan program
 @app.route('/quit', methods=['POST'])
 def quit_application():
     """Quit application"""
     global should_quit
     
     try:
-        # Set flag untuk menghentikan semua thread
+        # Set flag untuk menghentikan semua threads
         should_quit = True
         
         # Cleanup resources
